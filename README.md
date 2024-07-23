@@ -43,7 +43,8 @@ Steps to install the project locally:
    git clone https://github.com/Jornvanwel/Building_optimization.git
 
 ## Usage
-To use the model put in the configurations inside the config.yaml. Follow the file structure of the input file in the example1.csv. 
-Then run
-    ```bash
+Follow these steps for the usage:
+1. Update the config.yaml. Follow the file structure of the input file in the example1.csv. 
+2. Run the main_script.py
+```bash
     python main_script.py

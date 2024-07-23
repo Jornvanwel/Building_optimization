@@ -1,10 +1,13 @@
 # Building_optimization
 
-This projects aims to minimize the cost while ensuring that every worker is able to work at the office.
+This projects aims to minimize the cost while ensuring that every worker is able to work at the office. This project helps a business with multiple buildings to make the most cost effective transition to the new hybrid working environment where people are less often in the office and therefore buildings are less occupied.
 
-The optimization function is as follows
+## Table of Contents
+- [Introduction](#Introduction)
+- [Installation](#installation)
+- [Usage](#usage)
 
-Certainly! Below is the markdown representation of the mathematical equations based on the given Python code for the building closure optimization problem:
+## Introduction
 
 ### Decision Variables
 
@@ -12,77 +15,27 @@ $\( x_{ij} \)$: Binary variable indicating if building $\(i\)$ is open in period
 $\( y_{ijk} \)$: Binary variable indicating if workers are moved from building $\(i\)$ to building $\(k\)$ in period $\(j\)$.
 $\( z_{ijk} \)$: Binary variable indicating if workers are moving from building $\(i\)$ to building $\(k\)$ in period $\(j\)$.
 
-### Objective Function
+### Objective Function:
 
-Minimize the total cost:
+The objective is to minimize the total cost, which includes the monthly rent of each building that is open and the cost associated with moving workers between buildings.
 
-$$\text{prob} += \Bigg( &\sum_{i \in \text{Pand}, j=1}^{\text{periods}-1} \text{Rent}_{i} \cdot x_{i,j} \\
-&+ \sum_{i \in \text{Pand}, j=1}^{\text{periods}-1, k \in \text{Pand}} \text{if } k \in \text{Neighbors}(i) \text{ then } (\text{moving\_cost} \cdot \text{Occupation}_{k} \cdot z_{i,j,k}) \Bigg)$$
+### Contraints
 
-### Constraints
+**Contractual Obligations**: Ensures that a building remains open for the duration of its contractual obligation.
+**Capacity Limitation**: Ensures that the total number of workers at any building does not exceed its capacity. This includes workers originally assigned to the building and those moved from neighboring buildings.
+**Unique Movement**: Ensures that workers can only moved once.
+**Movement Dependency**: Ensures that workers can only move to a building that is open.
+**Exclusive Occupancy**: Ensures that when a building is closed, the workers have been moved to another building and only one.
+**Continuity of Operation**: Ensures that if a building is closed in a period, it remains closed in the subsequent period, reflecting a form of operational continuity.
+**Movement Activation**: Handles the logic for the z variable, ensuring it correctly reflects the transition of workers from one pand to another, specifically flagging the initiation of a move.
 
-#### Constraint 1: Contract Due
+## Installation
+Steps to install the project locally:
+1. Clone the repo
+   ```bash
+   git clone https://github.com/Jornvanwel/Building_optimization.git
+   ```bash
 
-$$
-$$
-\begin{cases}
-x_{ij} = 1 & \text{if } \text{Contractdue}_i > (\text{periods} - 1), \quad \forall i, \forall j \\
-x_{ij} = 1 & \text{if } j \leq \text{Contractdue}_i, \quad \forall i, \forall j
-\end{cases}
-$$
-$$
-
-#### Constraint 2: Maximum Occupation
-
-$$
-$$
-\text{Occupation}_i \cdot x_{ij} + \sum_{k \in \text{Neighbors}_i} \left( \text{Occupation}_k \cdot y_{kji} \right) \leq \text{Desks}_i, \quad \forall i, \forall j
-$$
-$$
-
-#### Constraint 3: One Move per Period
-
-$$
-$$
-\sum_{k \in \text{Neighbors}_i} y_{ijk} \leq 1, \quad \forall i, \forall j
-$$
-$$
-
-#### Constraint 4: Open Building for Movement
-
-$$
-\sum_{k \in \text{Neighbors}_i} y_{ijk} \leq 1, \quad \forall i, \forall j
-$$
-$$
-\sum_{k \in \text{Neighbors}_i} y_{ijk} \leq 1, \quad \forall i, \forall j
-$$
-
-#### Constraint 5: Building Usage or Movement
-
-$$
-x_{ij} \geq y_{kji}, \quad \forall i, \forall j, \forall k \in \text{Neighbors}_i
-$$
-$$
-x_{ij} \geq y_{kji}, \quad \forall i, \forall j, \forall k \in \text{Neighbors}_i
-$$
-
-#### Constraint 6: Building Closure Order
-
-$$
-$$
-x_{ij} \geq x_{i(j+1)}, \quad \forall i, \forall j < (\text{periods} - 1)
-$$
-$$
-
-#### Constraint 7: Movement Indicator
-
-$$
-$$
-\begin{cases}
-z_{ijk} = y_{ijk} & \text{if } j = 1, \quad \forall i, \forall j, \forall k \in \text{Neighbors}_i \\
-z_{ijk} \geq y_{ijk} - y_{i(j-1)k} & \text{if } j > 1, \quad \forall i, \forall j, \forall k \in \text{Neighbors}_i \\
-z_{ijk} \leq y_{ijk} & \text{if } j > 1, \quad \forall i, \forall j, \forall k \in \text{Neighbors}_i \\
-z_{ijk} \leq 1 - y_{i(j-1)k} & \text{if } j > 1, \quad \forall i, \forall j, \forall k \in \text{Neighbors}_i
-\end{cases}
-$$
-$$
+## Usage
+To use the model put in the configurations inside the config.yaml. Follow the file structure of the input file in the example1.csv. 
+Then run main_script.py

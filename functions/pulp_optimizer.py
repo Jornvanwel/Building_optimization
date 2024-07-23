@@ -1,7 +1,6 @@
 import pulp
 import pandas as pd
 from pandas.tseries.offsets import MonthBegin
-from pandas.tseries.offsets import MonthBegin
 import logging
 import os
 
@@ -72,7 +71,7 @@ def data_preparation(buildings_df):
 
     return buildings_df, buildings
 
-def pand_optimizer(pand_dictionary):
+def pand_optimizer(pand_dictionary, periods = 100):
     """
     Finds an optimal solution for worker allocation accross buildings with hybrid work environments.
 
@@ -93,55 +92,59 @@ def pand_optimizer(pand_dictionary):
     prob = pulp.LpProblem("Building_Closure_Optimization", pulp.LpMinimize)
 
     # Decision variables x: which is open or closed (1, 0), y: moved workers which is moved or not moved: (1,0), and z: moving workers which is moving or not moving (1,0)
-    x = pulp.LpVariable.dicts("x", [(i["Pandcode"], j) for i in pand_dictionary for j in range(1, 100)], cat='Binary')
-    y = pulp.LpVariable.dicts("y", [(i["Pandcode"], j, k["Pandcode"]) for i in pand_dictionary for j in range(1, 100) for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]], cat='Binary')
-    z = pulp.LpVariable.dicts("z", [(i["Pandcode"], j, k["Pandcode"]) for i in pand_dictionary for j in range(1, 100) for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]], cat='Binary')
+    x = pulp.LpVariable.dicts("x", [(i["Pandcode"], j) for i in pand_dictionary for j in range(1, periods)], cat='Binary')
+    y = pulp.LpVariable.dicts("y", [(i["Pandcode"], j, k["Pandcode"]) for i in pand_dictionary for j in range(1, periods) for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]], cat='Binary')
+    z = pulp.LpVariable.dicts("z", [(i["Pandcode"], j, k["Pandcode"]) for i in pand_dictionary for j in range(1, periods) for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]], cat='Binary')
     # Objective function
     moving_cost = 0
     prob += (
-        pulp.lpSum(i["Rent (Monthly)"] * x[i["Pandcode"], j] for i in pand_dictionary for j in range(1, 100)) + 
+        pulp.lpSum(i["Rent (Monthly)"] * x[i["Pandcode"], j] for i in pand_dictionary for j in range(1, periods)) + 
         pulp.lpSum(moving_cost * k["Occupation (Max)"] * z[i["Pandcode"], j, k["Pandcode"]]
                    for i in pand_dictionary
-                   for j in range(1, 100)
+                   for j in range(1, periods)
                    for k in pand_dictionary if k["Pandcode"] in i["Neighbors"])
     )
     # Constraints
     
     # Constraint 1
     for i in pand_dictionary:
-        for j in range(1, i["Contractdue (Months)"] + 1):
-            prob += x[i["Pandcode"], j] == 1
-    
+        if i["Contractdue (Months)"] > (periods -1):
+            for j in range(1, periods):
+                prob += x[i["Pandcode"], j] == 1
+        else:
+            for j in range(1, i["Contractdue (Months)"] + 1):
+                prob += x[i["Pandcode"], j] == 1
+
     # Constraint 2
     for i in pand_dictionary:
-        for j in range(1, 100):
+        for j in range(1, periods):
             prob += i["Occupation (Max)"] * x[i["Pandcode"], j] + pulp.lpSum(k["Occupation (Max)"] * y[k["Pandcode"], j, i["Pandcode"]] for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]) <= i["Desks"]
     
     # Constraint 3
     for i in pand_dictionary:
-        for j in range(1, 100):
+        for j in range(1, periods):
             prob += pulp.lpSum(y[i["Pandcode"], j, k["Pandcode"]] for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]) <= 1
     
     # Constraint 4
     for i in pand_dictionary:
-        for j in range(1, 100):
+        for j in range(1, periods):
             for k in pand_dictionary:
                 if k["Pandcode"] in i["Neighbors"]:
                     prob += x[i["Pandcode"], j] >= y[k["Pandcode"], j, i["Pandcode"]]
     
     # Constraint 5
     for i in pand_dictionary:
-        for j in range(1, 100):
+        for j in range(1, periods):
             prob += x[i["Pandcode"], j] + pulp.lpSum(y[i["Pandcode"], j, k["Pandcode"]] for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]) == 1
     
     # Constraint 6
     for i in pand_dictionary:
-        for j in range(1, 99):  # Up to 36 because j+1 will be 37
+        for j in range(1, (periods - 1)):  # Up to 36 because j+1 will be 37
             prob += x[i["Pandcode"], j] >= x[i["Pandcode"], j + 1]
 
     # Constraint 7: Ensuring that the moving variable is only 1 when y changes from 0 to 1.
     for i in pand_dictionary:
-        for j in range(1,100):
+        for j in range(1,periods):
             for k in pand_dictionary:
                 if k["Pandcode"] in i["Neighbors"]:
                     if j == 1:
@@ -161,7 +164,7 @@ def pand_optimizer(pand_dictionary):
         logging.warning("Continuing with the unoptimal output.")
     return x, y
 
-def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, distance = 5):
+def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, periods):
     """
     Transforms the solution to the optimization problem into a readable dataframe.
 
@@ -188,7 +191,7 @@ def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, distance = 5):
     # Extracting names and values for x and y   
     for i in pand_dictionary:
         Pandcode = i['Pandcode']
-        for j in range(1, 100):
+        for j in range(1, periods):
             Ysum = 0
             for k in pand_dictionary:
                 if k["Pandcode"] in i["Neighbors"] and y[i["Pandcode"], j, k["Pandcode"]].varValue == 1:
@@ -215,53 +218,4 @@ def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, distance = 5):
     first_of_next_month = today + MonthBegin(1)
     df["DatumID"] = df["Month"].apply(lambda x: (first_of_next_month + pd.DateOffset(months=x)).replace(day=1).date())
     df = df.drop(['Neighbors', 'neighbors_real'], axis = 1)
-    df['Allowed_distance'] = distance
     return df
-
-def execute_functions_distance(min_distance, max_distance):
-    """
-    Finds the optimal solution for a range of distances.
-
-    Parameters:
-    min_distance (int): The minimum distance the algorithm is used on.
-    max_distance (int): The maximum distance the algorithm is used on.
-
-    Return:
-    df (DataFrame): A dataframe that contains the optimal solution of the algorithm for a range of distances.
-    """
-    df = pd.DataFrame()
-    for distance in range(min_distance,max_distance):
-        print(f"Calculating the optimal solution for distance: {distance}")
-        buildings_df, buildings_dict = data_preparation(distance)
-        x, y = pand_optimizer(buildings_dict)
-        results_closing = optimizer_to_dataframe(buildings_df, buildings_dict, x, y, distance)
-        df = pd.concat([df, results_closing], axis = 0, ignore_index = False)
-    return df
-
-def main():
-    """
-    Main function of the application
-
-    This function serves as the entry point of the pand allocation algorithm program. 
-    It calls other functions to perform tasks such as data preparation, model execution 
-    and transforming the output into a readable format. It also handles top-level
-    application logic.
-
-    Returns:
-        None
-    """
-    # Set up logging
-    logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
-
-    logging.info("Main function started")
-    pand_df = pd.read_csv('.\Dummy_data\example1.csv')
-    buildings_df, buildings_dict = data_preparation(pand_df)
-    x, y  = pand_optimizer(buildings_dict)
-    results_closing = optimizer_to_dataframe(buildings_df, buildings_dict, x, y)
-    save_results(results_closing)
-    logging.info("Main function succesfully finished.")
-
-if __name__ == "__main__":
-    main()
-
-

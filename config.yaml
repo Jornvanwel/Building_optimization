@@ -1,0 +1,3 @@
+logging_level: INFO
+data_file: Dummy_data/example1.csv
+timehorizon : 4

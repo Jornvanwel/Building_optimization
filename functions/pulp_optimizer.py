@@ -3,6 +3,7 @@ import pandas as pd
 from pandas.tseries.offsets import MonthBegin
 import logging
 import os
+import yaml
 
 def save_results(results_df):
     """
@@ -155,7 +156,7 @@ def pand_optimizer(pand_dictionary, periods = 100):
                         prob += z[i["Pandcode"], j, k["Pandcode"]] <= 1 - y[i["Pandcode"], j-1, k["Pandcode"]]
 
     # Solve the problem
-    status = prob.solve()
+    status = prob.solve(PULP_CBC_CMD(msg=0))
                     
     if pulp.LpStatus[status] == 'Optimal':
         logging.info("Found an optimal solution.")
@@ -219,3 +220,13 @@ def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, periods):
     df["DatumID"] = df["Month"].apply(lambda x: (first_of_next_month + pd.DateOffset(months=x)).replace(day=1).date())
     df = df.drop(['Neighbors', 'neighbors_real'], axis = 1)
     return df
+
+def load_config(config_file='config.yaml'):
+    try:
+        with open(config_file, 'r') as file:
+            config = yaml.safe_load(file)
+        logging.info("Configuration loaded successfully.")
+        return config
+    except Exception as e:
+        logging.error(f"Failed to load configuration file: {e}")
+        return None

@@ -16,7 +16,7 @@ $\( z_{ijk} \)$: Binary variable indicating if workers are moving from building 
 
 Minimize the total cost:
 
-$$\text{Minimize} \quad & \sum_{i \in \text{Pandcodes}} \sum_{j=1}^{\text{periods}-1} \text{Rent}_i \cdot x_{i,j} + \sum_{i \in \text{Pandcodes}} \sum_{j=1}^{\text{periods}-1} \sum_{k \in \text{Neighbors}_i} \text{moving\_cost} \cdot \text{Occupation}_{k,\text{Max}} \cdot z_{i,j,k}$$
+$$\quad & \sum_{i \in } \sum_{j=1}^{-1} \_i \cdot x_{i,j} + \sum_{i \in } \sum_{j=1}^{-1} \sum_{k \in _i}  \cdot _{k,} \cdot z_{i,j,k}$$
 
 ### Constraints
 

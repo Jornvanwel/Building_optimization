@@ -44,6 +44,6 @@ Steps to install the project locally:
 
 ## Usage
 To use the model put in the configurations inside the config.yaml. Follow the file structure of the input file in the example1.csv. 
-Then run:
+Then run
     ```bash
     python main_script.py

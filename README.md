@@ -8,9 +8,9 @@ Certainly! Below is the markdown representation of the mathematical equations ba
 
 ### Decision Variables
 
-$\( x_{ij} \): Binary variable indicating if building \(i\) is open in period \(j\).$
-$\( y_{ijk} \): Binary variable indicating if workers are moved from building \(i\) to building \(k\) in period \(j\).$
-$\( z_{ijk} \): Binary variable indicating if workers are moving from building \(i\) to building \(k\) in period \(j\).$
+$$\( x_{ij} \): Binary variable indicating if building \(i\) is open in period \(j\).$$
+$$\( y_{ijk} \): Binary variable indicating if workers are moved from building \(i\) to building \(k\) in period \(j\).$$
+$$\( z_{ijk} \): Binary variable indicating if workers are moving from building \(i\) to building \(k\) in period \(j\).$$
 
 ### Objective Function
 

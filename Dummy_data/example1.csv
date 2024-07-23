@@ -1,0 +1,6 @@
+﻿Pandcode,Rent (Monthly),Contractdue (Months),Occupation (Max),Neighbors,Desks
+A,2000,6,40,"[B, D]",100
+B,1000,3,50,[A],100
+C,1500,2,80,[D],100
+D,1100,12,30,"[A, C]",200
+E,1800,24,80,[],150

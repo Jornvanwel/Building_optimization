@@ -1,18 +1,7 @@
 import logging
 import functions.pulp_optimizer as po
 import pandas as pd
-import yaml
 
-def load_config(config_file='config.yaml'):
-    try:
-        with open(config_file, 'r') as file:
-            config = yaml.safe_load(file)
-        logging.info("Configuration loaded successfully.")
-        return config
-    except Exception as e:
-        logging.error(f"Failed to load configuration file: {e}")
-        return None
-    
 def main():
     """
     Main function of the application
@@ -25,13 +14,15 @@ def main():
     Returns:
         None
     """
-    config = load_config()
+    config = po.load_config()
+    
     if config is None:
         logging.error("Configuration loading failed. Exiting.")
         return
     
     # Set up logging
-    logging.basicConfig(level=config.get('logging_level', 'INFO'), format='%(asctime)s - %(levelname)s - %(message)s')
+    logging.basicConfig()
+    logging.getLogger().setLevel(config.get('logging_level'))
 
     logging.info("Main function started")
 

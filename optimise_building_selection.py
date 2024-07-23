@@ -1,52 +1,37 @@
 import pulp
 import pandas as pd
-from datetime import date, timedelta
-import math
 from pandas.tseries.offsets import MonthBegin
 from pandas.tseries.offsets import MonthBegin
+import logging
+import os
 
-def distance_calculator(lat1, lon1, lat2, lon2):
+def save_results(results_df):
     """
-    Calculates the distance between two locations.
+    Saves the results to a CSV file in the 'results' directory with an incremented filename.
 
     Parameters:
-    lat1 (float): The latitude of the first location.
-    lon1 (float): The longitude of the first location.
-    lat2 (float): The latitude of the second location.
-    lon2 (float): The longitude of the second location.
-
-    Return:
-    float: The distance between the two location in km's.
+    results_df (DataFrame): The dataframe containing the results to save.
     """
-    r = 6371 # km
-    p = math.pi / 180
-
-    a = 0.5 - math.cos((lat2-lat1)*p)/2 + math.cos(lat1*p) * math.cos(lat2*p) * (1-math.cos((lon2-lon1)*p))/2
-    return 2 * r * math.asin(math.sqrt(a))
-
-def add_month_diff(df):
-    """
-    Adds a column with the difference between today and the ending date of the contract column.
-
-    Parameters:
-    df (DataFrame): A dataframe with buildings and the ending date of the contract.
-
-    Return:
-    DataFrame: A dataframe with the new 'end_date' column in it, which states the difference in months between today and the ending_date.
-    """
-    df['current_date'] = date.today() + MonthBegin(1)
-    df['current_date'] = pd.to_datetime(df['current_date'])
-    df['EindeContract'] = pd.to_datetime(df['EindeContract']) + pd.Timedelta(days=1)
-    df['end_date'] = df.apply(lambda row: (row['EindeContract'].year - row['current_date'].year) * 12 + row['EindeContract'].month - row['current_date'].month, axis =1).astype('int')
-    return df
+    # Ensure the results directory exists
+    if not os.path.exists('results'):
+        os.makedirs('results')
     
-def data_preparation(buildings_df, distance = 5):
+    # Determine the next available filename
+    i = 1
+    while os.path.exists(f'results/results{i}.csv'):
+        i += 1
+    
+    # Save the results to the next available filename
+    results_df.to_csv(f'results/results{i}.csv', index=False)
+    logging.info(f'Results saved to results/results{i}.csv')
+    
+def data_preparation(buildings_df):
     """
     Prepares and returns data related to building information used by the optimization procedure.
 
     Parameters:
-    distance (int): The distance in kilometers used to determine neighboring buildings. 
-    Is passed on to the add_neighbors() function
+    buildings_df (int): Uses a dataframe as an input. It should include the columns:
+    'Pandcode', 'Rent (Monthly)', 'Contractdue (Months)', 'Occupation (Max)', 'Neighbors', 'Desks'
 
     Return:
     DataFrame: A dataframe containing information for each building.
@@ -57,17 +42,34 @@ def data_preparation(buildings_df, distance = 5):
     number of workers, neighboring buildings and building capacity
     """
     
-    print("Preparing the data")
+    logging.info("Preparing the data")
     
+    required_columns = ['Pandcode', 'Rent (Monthly)', 'Contractdue (Months)', 'Occupation (Max)', 'Neighbors', 'Desks']
+    
+    # Check if all required columns are present in the dataframe
+    missing_columns = [col for col in required_columns if col not in buildings_df.columns]
+    if missing_columns:
+        logging.error(f"Missing columns in the dataframe: {missing_columns}")
+        return None, None
+    
+    logging.info("All required columns are present. Preparing the data.")
+
     # Make from the dataframe a list of dictionaries
-    buildings = buildings_df.astype({'Pandcode': 'str',
-                                     'Rent (Monthly)': 'int64',
-                                     'Contractdue (Months)': 'int64',
-                                     'Occupation (Max)': 'int64',
-                                     'Neighbors': 'str',
-                                     'Desks': 'int64'})
+    try:
+        buildings = buildings_df.astype({'Pandcode': 'str',
+                                        'Rent (Monthly)': 'int64',
+                                        'Contractdue (Months)': 'int64',
+                                        'Occupation (Max)': 'int64',
+                                        'Neighbors': 'str',
+                                        'Desks': 'int64'})
+        logging.info('Columns have been transformed into the correct format')
+    except:
+        logging.error('Unable to transform the columns in the correct format. Check the examples for the correct formatting.')
+
     buildings = buildings_df.to_dict('records')
     
+    logging.info("Data preparation is complete.")
+
     return buildings_df, buildings
 
 def pand_optimizer(pand_dictionary):
@@ -86,11 +88,11 @@ def pand_optimizer(pand_dictionary):
     and 0 if they are not moved.
     """
 
-    print("Optimizing...")
+    logging.info("Optimizing...")
     # Create an LP problem instance
     prob = pulp.LpProblem("Building_Closure_Optimization", pulp.LpMinimize)
-    
-    # Decision variables
+
+    # Decision variables x: which is open or closed (1, 0), y: moved workers which is moved or not moved: (1,0), and z: moving workers which is moving or not moving (1,0)
     x = pulp.LpVariable.dicts("x", [(i["Pandcode"], j) for i in pand_dictionary for j in range(1, 100)], cat='Binary')
     y = pulp.LpVariable.dicts("y", [(i["Pandcode"], j, k["Pandcode"]) for i in pand_dictionary for j in range(1, 100) for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]], cat='Binary')
     z = pulp.LpVariable.dicts("z", [(i["Pandcode"], j, k["Pandcode"]) for i in pand_dictionary for j in range(1, 100) for k in pand_dictionary if k["Pandcode"] in i["Neighbors"]], cat='Binary')
@@ -153,10 +155,10 @@ def pand_optimizer(pand_dictionary):
     status = prob.solve()
                     
     if pulp.LpStatus[status] == 'Optimal':
-        print("Found an optimal solution.")
+        logging.info("Found an optimal solution.")
     else:
-        print("Could not find an optimal solution.")
-        print("Continuing with the unoptimal output.")
+        logging.warning("Could not find an optimal solution.")
+        logging.warning("Continuing with the unoptimal output.")
     return x, y
 
 def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, distance = 5):
@@ -179,35 +181,30 @@ def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, distance = 5):
     df (DataFrame): A dataframe with the optimal solution and the corresponding information.
     """
     
-    print("Preparing the optimized data")
+    logging.info("Preparing the optimized data")
     # Results
 
     df = pd.DataFrame(columns = ['Pandcode', 'Month', 'Status', 'pandcode_real'])
     # Extracting names and values for x and y   
     for i in pand_dictionary:
-        Pandcode = i['id']
+        Pandcode = i['Pandcode']
         for j in range(1, 100):
             Ysum = 0
             for k in pand_dictionary:
-                if k["id"] in i["neighbors"] and y[i["id"], j, k["id"]].varValue == 1:
-                    Reallocatie_pandcode = k['id']
+                if k["Pandcode"] in i["Neighbors"] and y[i["Pandcode"], j, k["Pandcode"]].varValue == 1:
+                    Reallocatie_pandcode = k['Pandcode']
                     Ysum += 1
             if Ysum == 0:
                 Reallocatie_pandcode = Pandcode              
             month = j
-            if x[i["id"], j].varValue == 1:
+            if x[i["Pandcode"], j].varValue == 1:
                 status = 'Open'
             else:
                 status = 'Closed'
 
             df.loc[len(df.index)] = [Pandcode, month, status, Reallocatie_pandcode]
-            
-    longlat_df = pd.read_csv('//10.178.145.69/div/Projecten/Pandbezetting/Brondata/Long_lat/DimLongLat.csv', sep=';').drop('PandcodeID', axis = 1)
-    longlat_df['Latitude'] = pd.to_numeric(longlat_df['Latitude'].str.replace(',', '.'))
-    longlat_df['Longitude'] = pd.to_numeric(longlat_df['Longitude'].str.replace(',', '.'))
     
-    df = df.merge(buildings_df, left_on = 'Pandcode' , right_on = ['id'], how = 'left')
-    df = df.merge(longlat_df, on = 'Pandcode', how = 'left')
+    df = df.merge(buildings_df, left_on = 'Pandcode' , right_on = ['Pandcode'], how = 'left')
     
     reallocatie_df = buildings_df
     reallocatie_df.columns = ['pandcode_real', 'kosten_real', 'end_date_real', 'workers_real', 'neighbors_real', 'capacity_real']
@@ -217,7 +214,7 @@ def optimizer_to_dataframe(buildings_df, pand_dictionary, x, y, distance = 5):
     today = pd.to_datetime("today")
     first_of_next_month = today + MonthBegin(1)
     df["DatumID"] = df["Month"].apply(lambda x: (first_of_next_month + pd.DateOffset(months=x)).replace(day=1).date())
-    df = df.drop(['neighbors', 'neighbors_real'], axis = 1)
+    df = df.drop(['Neighbors', 'neighbors_real'], axis = 1)
     df['Allowed_distance'] = distance
     return df
 
@@ -253,12 +250,16 @@ def main():
     Returns:
         None
     """
-    print("Main function started")
+    # Set up logging
+    logging.basicConfig(level=logging.WARNING, format='%(asctime)s - %(levelname)s - %(message)s')
+
+    logging.info("Main function started")
     pand_df = pd.read_csv('.\Dummy_data\example1.csv')
-    print(pand_df)
-    _, buildings_dict = data_preparation(pand_df)
-    algorithm_df = pand_optimizer(buildings_dict)
-    print("Main function succesfully finished.")
+    buildings_df, buildings_dict = data_preparation(pand_df)
+    x, y  = pand_optimizer(buildings_dict)
+    results_closing = optimizer_to_dataframe(buildings_df, buildings_dict, x, y)
+    save_results(results_closing)
+    logging.info("Main function succesfully finished.")
 
 if __name__ == "__main__":
     main()

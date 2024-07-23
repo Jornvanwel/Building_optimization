@@ -156,7 +156,7 @@ def pand_optimizer(pand_dictionary, periods = 100):
                         prob += z[i["Pandcode"], j, k["Pandcode"]] <= 1 - y[i["Pandcode"], j-1, k["Pandcode"]]
 
     # Solve the problem
-    status = prob.solve()
+    status = prob.solve(PULP_CBC_CMD(msg=0))
                     
     if pulp.LpStatus[status] == 'Optimal':
         logging.info("Found an optimal solution.")
